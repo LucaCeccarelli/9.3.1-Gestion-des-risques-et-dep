@@ -125,7 +125,7 @@ class Container(containers.DeclarativeContainer):
 
 - `http_client` est un singleton : une seule connexion pool, un seul User-Agent (exigence de la politique d'usage Nominatim).
 - `geocoder`, `forecaster`, `weather_service` sont des `Factory` : objets légers, une instance par requête.
-- Pas de `wiring_config` : `main.py` importe le conteneur, définit ses endpoints, puis appelle `container.wire(modules=[__name__])` en fin de module. Un `wiring_config` visant `meteo.main` câblerait le module pendant son propre import, avant que l'endpoint existe, et n'injecterait rien.
+- Pas de `wiring_config` : `main.py` importe le conteneur, définit ses endpoints, puis appelle `container.wire(modules=[__name__])` en fin de module. Câblage explicite par choix de lisibilité ; un `wiring_config` fonctionnerait aussi à condition d'instancier `Container()` après la définition de l'endpoint.
 
 ## App (`meteo/main.py`)
 

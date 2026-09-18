@@ -1,4 +1,3 @@
-import sys
 from typing import Annotated
 
 import httpx
@@ -35,5 +34,5 @@ def weather(
 
 # Câblage explicite en fin de module : l'endpoint doit exister avant que le conteneur l'injecte.
 container = Container()
-container.wire(modules=[sys.modules[__name__]])
+container.wire(modules=[__name__])
 app.container = container

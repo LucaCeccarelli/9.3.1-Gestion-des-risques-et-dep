@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TP1 school assignment: a FastAPI service where `GET /weather?address=<postal address>` geocodes the address with Nominatim, then fetches an hourly `temperature_2m` forecast from Open-Meteo. The spec (`/home/luca/git/9-3-Dep/TP1.pdf`, outside the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. The implementation plan lives in `docs/superpowers/plans/` (untracked).
+TP1 school assignment: a FastAPI service where `GET /weather?address=<postal address>` geocodes the address with Nominatim, then fetches an hourly `temperature_2m` forecast from Open-Meteo. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. The implementation plan lives in `docs/superpowers/plans/` (untracked).
 
 The code is deliberately minimal (ponytail discipline: stdlib/native first, no speculative abstractions, sync httpx, no settings/env config). Keep it that way; add only what a real need demands.
 
@@ -37,8 +37,8 @@ Import direction, one way only: `models` ← `ports` ← `services` ← `adapter
 - `meteo/ports.py`: `Geocoder` and `Forecaster` ABCs plus `AddressNotFound`. Adapters and test fakes inherit explicitly.
 - `meteo/services.py`: `WeatherService.report(address) -> WeatherReport`, the only business flow.
 - `meteo/adapters/nominatim.py`, `meteo/adapters/open_meteo.py`: HTTP implementations over an injected `httpx.Client`. Empty Nominatim result raises `AddressNotFound`; non-2xx raises `httpx.HTTPStatusError`.
-- `meteo/container.py`: `dependency_injector` `DeclarativeContainer`. `http_client` is a `Singleton` carrying `User-Agent: meteo-tp1` (Nominatim policy) and a 10 s timeout; `geocoder`, `forecaster`, `weather_service` are `Factory`.
-- `meteo/main.py`: app, two `exception_handler`s (`AddressNotFound` → 404 with the address in `detail`, `httpx.HTTPError` → 502), the `/weather` endpoint injected with `Depends(Provide[Container.weather_service])` under `@inject`, then `container.wire()` at the very end of the module. The wiring must stay after the endpoint definition, which is why the container has no `wiring_config`.
+- `meteo/container.py`: `dependency_injector` `DeclarativeContainer`. `http_client` is a `ThreadSafeSingleton` carrying `User-Agent: meteo-tp1` (Nominatim policy) and a 10 s timeout; `geocoder`, `forecaster`, `weather_service` are `Factory`.
+- `meteo/main.py`: app, two `exception_handler`s (`AddressNotFound` → 404 with the address in `detail`, `httpx.HTTPError` → 502), the `/weather` endpoint injected with `Depends(Provide[Container.weather_service])` under `@inject`, then `container.wire()` at the very end of the module. Wiring is explicit by choice; a `wiring_config` would also work provided `Container()` is instantiated after the endpoint definition.
 
 Tests follow the same seams:
 - `tests/conftest.py`: `FakeGeocoder` / `FakeForecaster` subclass the ABCs; fixtures `geocoder` / `forecaster`.

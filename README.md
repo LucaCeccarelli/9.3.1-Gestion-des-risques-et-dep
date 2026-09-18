@@ -57,6 +57,6 @@ meteo/
 ```
 
 - **Couplage faible** : `services.py` ne connaît que les ports abstraits de `ports.py`. Les adaptateurs HTTP en héritent explicitement et reçoivent leur `httpx.Client` par constructeur. Seul `main.py` importe FastAPI.
-- **Inversion de contrôle** : aucun module ne construit ses dépendances. `container.py` déclare le graphe (`Singleton` pour le client HTTP avec le `User-Agent` exigé par Nominatim, `Factory` pour les adaptateurs et le service) ; `main.py` le câble en fin de module.
+- **Inversion de contrôle** : aucun module ne construit ses dépendances. `container.py` déclare le graphe (`ThreadSafeSingleton` pour le client HTTP avec le `User-Agent` exigé par Nominatim, `Factory` pour les adaptateurs et le service) ; `main.py` le câble en fin de module.
 - **Injection de dépendances** : l'endpoint reçoit `WeatherService` via `Depends(Provide[Container.weather_service])`. Les tests API remplacent `geocoder` et `forecaster` par des fakes avec `app.container.<provider>.override(...)`, sans réseau.
 - **Pydantic** : `WeatherReport` est le `response_model` de l'endpoint ; le schéma apparaît dans `/docs`.

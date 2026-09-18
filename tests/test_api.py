@@ -52,3 +52,14 @@ def test_upstream_failure_is_502(client, geocoder):
 
 def test_http_client_sends_identifying_user_agent():
     assert app.container.http_client().headers["user-agent"] == "meteo-tp1"
+
+
+def test_composition_root_wires_real_adapters_on_one_shared_client():
+    from meteo.adapters.nominatim import NominatimGeocoder
+    from meteo.adapters.open_meteo import OpenMeteoForecaster
+
+    service = app.container.weather_service()
+
+    assert isinstance(service.geocoder, NominatimGeocoder)
+    assert isinstance(service.forecaster, OpenMeteoForecaster)
+    assert service.geocoder.client is service.forecaster.client is app.container.http_client()
