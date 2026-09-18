@@ -52,7 +52,7 @@ Le fournisseur de chaque port se choisit par variable d'environnement, sans rebu
 | `METEO_FORECASTER` | `open_meteo`, `met_norway` | `open_meteo` |
 | `METEO_USER_AGENT` | texte libre avec un contact (exigé par Nominatim et MET Norway) | `TP2-MeteoApi/1.0 luca.ceccarelli@etu.mines-ales.fr` |
 
-Les variables peuvent aussi être posées dans un fichier `.env` à côté de `compose.yaml` (lu automatiquement par Docker Compose). Une valeur inconnue provoque une erreur à la première requête, pas au démarrage.
+Les variables peuvent aussi être posées dans un fichier `.env` à côté de `compose.yaml` (lu automatiquement par Docker Compose) : `cp .env.example .env` puis modifier les valeurs. Une valeur inconnue provoque une erreur à la première requête, pas au démarrage.
 
 ```bash
 METEO_GEOCODER=ban METEO_FORECASTER=met_norway docker compose up -d --wait
