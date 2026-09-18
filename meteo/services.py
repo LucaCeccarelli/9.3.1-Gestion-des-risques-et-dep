@@ -3,7 +3,6 @@ from meteo.ports import Forecaster, Geocoder
 
 
 class WeatherService:
-    """Enchaîne géocodage puis prévision. Ne dépend que des ports abstraits."""
 
     def __init__(self, geocoder: Geocoder, forecaster: Forecaster) -> None:
         self.geocoder = geocoder

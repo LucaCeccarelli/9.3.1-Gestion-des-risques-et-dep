@@ -10,7 +10,7 @@ from meteo.models import WeatherReport
 from meteo.ports import AddressNotFound
 from meteo.services import WeatherService
 
-app = FastAPI(title="Météo", description="Adresse postale -> prévisions (Nominatim + Open-Meteo)")
+app = FastAPI(title="Meteo")
 
 
 @app.exception_handler(AddressNotFound)
