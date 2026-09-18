@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TP1 school assignment: a FastAPI service where `GET /weather?address=<postal address>` geocodes the address with Nominatim, then fetches an hourly `temperature_2m` forecast from Open-Meteo. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. The implementation plan lives in `docs/superpowers/plans/` (untracked).
+TP1/TP2 school assignment: a FastAPI service where `GET /weather?address=<postal address>` geocodes the address (Nominatim or BAN), then fetches an hourly temperature forecast (Open-Meteo or MET Norway); the provider for each step is chosen by environment variable. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. The implementation plan lives in `docs/superpowers/plans/` (untracked).
 
-The code is deliberately minimal (ponytail discipline: stdlib/native first, no speculative abstractions, sync httpx, no settings/env config). Keep it that way; add only what a real need demands.
+The code is deliberately minimal (ponytail discipline: stdlib/native first, no speculative abstractions, sync httpx, configuration limited to three `METEO_*` environment variables). Keep it that way; add only what a real need demands.
 
 ## Commands
 
@@ -48,7 +48,7 @@ Tests follow the same seams:
 - `tests/test_api.py`: overrides `app.container.geocoder` / `forecaster` with `providers.Object(fake)` inside a `with` block, then `TestClient`.
 - `tests/test_e2e.py`: Playwright request API against the compose container; the only tests marked `e2e`.
 
-When adding a provider or changing the contract: model in `models.py`, port in `ports.py`, HTTP implementation in `adapters/`, provider in `container.py`, endpoint in `main.py`.
+When adding a provider: one module in `adapters/` subclassing the port, one entry in the matching `Selector` in `container.py`, one `CASES` entry in the port's contract test. Unknown `METEO_*` values fail at the first request, not at startup. Changing the contract itself: model in `models.py`, port in `ports.py`, endpoint in `main.py`.
 
 ## Docker
 

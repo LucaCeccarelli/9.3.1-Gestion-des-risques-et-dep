@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import httpx
 
 from meteo.models import Forecast, Location
@@ -11,10 +13,12 @@ class MetNorwayForecaster(Forecaster):
         self.client = client
 
     def forecast(self, location: Location) -> Forecast:
-        response = self.client.get(MET_NORWAY_URL, params={"lat": location.latitude, "lon": location.longitude})
+        response = self.client.get(
+            MET_NORWAY_URL, params={"lat": round(location.latitude, 4), "lon": round(location.longitude, 4)}
+        )
         response.raise_for_status()
         series = response.json().get("properties", {}).get("timeseries") or []
         return Forecast(
-            times=[entry["time"] for entry in series],
+            times=[datetime.fromisoformat(entry["time"]).strftime("%Y-%m-%dT%H:%M") for entry in series],
             temperatures=[entry["data"]["instant"]["details"]["air_temperature"] for entry in series],
         )

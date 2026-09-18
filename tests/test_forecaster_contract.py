@@ -22,8 +22,8 @@ CASES = {
         found={
             "properties": {
                 "timeseries": [
-                    {"time": "2026-09-18T00:00", "data": {"instant": {"details": {"air_temperature": 17.2}}}},
-                    {"time": "2026-09-18T01:00", "data": {"instant": {"details": {"air_temperature": 16.8}}}},
+                    {"time": "2026-09-18T00:00:00Z", "data": {"instant": {"details": {"air_temperature": 17.2}}}},
+                    {"time": "2026-09-18T01:00:00Z", "data": {"instant": {"details": {"air_temperature": 16.8}}}},
                 ]
             }
         },
@@ -64,3 +64,13 @@ def test_empty_response_gives_empty_forecast(case, stub_client):
 def test_http_error_propagates(case, stub_client):
     with pytest.raises(httpx.HTTPStatusError):
         case["adapter"](stub_client(case["found"], status=500)).forecast(ALES)
+
+
+def test_met_norway_sends_at_most_four_decimals(stub_client):
+    seen: list[httpx.Request] = []
+    MetNorwayForecaster(stub_client(CASES["met_norway"]["found"], seen=seen)).forecast(
+        Location(latitude=44.1253665, longitude=4.0852818)
+    )
+
+    assert seen[0].url.params["lat"] == "44.1254"
+    assert seen[0].url.params["lon"] == "4.0853"

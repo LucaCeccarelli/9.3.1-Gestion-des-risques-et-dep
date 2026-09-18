@@ -1,3 +1,5 @@
+import os
+
 from meteo.adapters.ban import BanGeocoder
 from meteo.adapters.met_norway import MetNorwayForecaster
 from meteo.adapters.nominatim import NominatimGeocoder
@@ -32,6 +34,8 @@ def test_user_agent_comes_from_config():
 
 
 def test_defaults_when_env_is_unset():
+    assert not [name for name in os.environ if name.startswith("METEO_")], "unset METEO_* to run the hermetic suite"
+
     container = Container()
 
     assert container.config.geocoder() == "nominatim"
