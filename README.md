@@ -30,11 +30,33 @@ uv run pytest -m e2e                       # end-to-end Playwright contre le con
 docker compose down
 ```
 
+## Réponse
+
+```json
+{
+  "address": "Alès",
+  "location": {"latitude": 44.125, "longitude": 4.085},
+  "forecast": {"times": ["2026-09-18T00:00", "..."], "temperatures": [17.2, 16.8]}
+}
+```
+
+Codes : `422` adresse absente ou vide, `404` adresse inconnue, `502` service externe en erreur.
+
 ## Architecture
 
-- `meteo/domain.py` — cœur sans dépendance : `Location`, `Forecast`, ports `Geocoder` / `Forecaster` (Protocols), `WeatherService` qui les enchaîne.
-- `meteo/adapters.py` — implémentations HTTP des ports (`NominatimGeocoder`, `OpenMeteoForecaster`) ; le `httpx.Client` est injecté.
-- `meteo/main.py` — composition root : FastAPI `Depends` fournit le client HTTP puis le `WeatherService`. Les tests API remplacent `get_weather_service` via `app.dependency_overrides`.
-- `tests/test_e2e.py` — Playwright (`request` API, sans navigateur) contre le service lancé par `compose.yaml`.
+```
+meteo/
+  main.py            app FastAPI : endpoints, handlers d'erreurs, câblage du conteneur
+  container.py       conteneur dependency-injector (composition root)
+  models.py          modèles Pydantic : Location, Forecast, WeatherReport
+  ports.py           ports abstraits (ABC) : Geocoder, Forecaster ; AddressNotFound
+  services.py        WeatherService : geocode → forecast → WeatherReport
+  adapters/
+    nominatim.py     NominatimGeocoder(Geocoder)
+    open_meteo.py    OpenMeteoForecaster(Forecaster)
+```
 
-Couplage faible / IoC / DI : le domaine ne connaît ni httpx ni FastAPI ; les adaptateurs ne se construisent pas eux-mêmes leur client ; seul `main.py` assemble.
+- **Couplage faible** : `services.py` ne connaît que les ports abstraits de `ports.py`. Les adaptateurs HTTP en héritent explicitement et reçoivent leur `httpx.Client` par constructeur. Seul `main.py` importe FastAPI.
+- **Inversion de contrôle** : aucun module ne construit ses dépendances. `container.py` déclare le graphe (`Singleton` pour le client HTTP avec le `User-Agent` exigé par Nominatim, `Factory` pour les adaptateurs et le service) ; `main.py` le câble en fin de module.
+- **Injection de dépendances** : l'endpoint reçoit `WeatherService` via `Depends(Provide[Container.weather_service])`. Les tests API remplacent `geocoder` et `forecaster` par des fakes avec `app.container.<provider>.override(...)`, sans réseau.
+- **Pydantic** : `WeatherReport` est le `response_model` de l'endpoint ; le schéma apparaît dans `/docs`.
