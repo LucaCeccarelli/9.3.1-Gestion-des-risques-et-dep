@@ -1,39 +1,39 @@
-from functools import lru_cache
+import sys
 from typing import Annotated
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Query
+from dependency_injector.wiring import Provide, inject
+from fastapi import Depends, FastAPI, Query, Request
+from fastapi.responses import JSONResponse
 
-from meteo.adapters import NominatimGeocoder, OpenMeteoForecaster
-from meteo.domain import AddressNotFound, WeatherService
+from meteo.container import Container
+from meteo.models import WeatherReport
+from meteo.ports import AddressNotFound
+from meteo.services import WeatherService
 
-app = FastAPI(title="Meteo")
-
-
-@lru_cache
-def get_http_client() -> httpx.Client:
-    # Nominatim's usage policy requires an identifying User-Agent.
-    return httpx.Client(timeout=10, headers={"User-Agent": "meteo-tp1"})
+app = FastAPI(title="Météo", description="Adresse postale -> prévisions (Nominatim + Open-Meteo)")
 
 
-def get_weather_service(client: Annotated[httpx.Client, Depends(get_http_client)]) -> WeatherService:
-    return WeatherService(NominatimGeocoder(client), OpenMeteoForecaster(client))
+@app.exception_handler(AddressNotFound)
+def address_not_found(request: Request, exc: AddressNotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": f"Address not found: {exc}"})
 
 
-@app.get("/weather")
+@app.exception_handler(httpx.HTTPError)
+def upstream_error(request: Request, exc: httpx.HTTPError) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": f"Upstream service error: {exc}"})
+
+
+@app.get("/weather", response_model=WeatherReport)
+@inject
 def weather(
-    address: Annotated[str, Query(min_length=1, description="Address")],
-    service: Annotated[WeatherService, Depends(get_weather_service)],
-) -> dict:
-    try:
-        location, forecast = service.forecast_for(address)
-    except AddressNotFound:
-        raise HTTPException(status_code=404, detail=f"Address not found: {address}")
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Upstream service error: {exc}")
-    return {
-        "address": address,
-        "latitude": location.latitude,
-        "longitude": location.longitude,
-        "hourly": {"time": forecast.times, "temperature_2m": forecast.temperatures},
-    }
+    address: Annotated[str, Query(min_length=1, description="Adresse postale")],
+    service: WeatherService = Depends(Provide[Container.weather_service]),
+) -> WeatherReport:
+    return service.report(address)
+
+
+# Câblage explicite en fin de module : l'endpoint doit exister avant que le conteneur l'injecte.
+container = Container()
+container.wire(modules=[sys.modules[__name__]])
+app.container = container

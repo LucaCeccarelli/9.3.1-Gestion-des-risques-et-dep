@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "TP1 - API meteo : adresse postale -> previsions (Nominatim + Open-Meteo)"
 requires-python = ">=3.12"
 dependencies = [
+    "dependency-injector>=4.41",
     "fastapi[standard]>=0.115",
     "httpx>=0.27",
 ]

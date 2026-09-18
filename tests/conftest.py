@@ -1,9 +1,10 @@
 import pytest
 
-from meteo.domain import Forecast, Location
+from meteo.models import Forecast, Location
+from meteo.ports import Forecaster, Geocoder
 
 
-class FakeGeocoder:
+class FakeGeocoder(Geocoder):
     def __init__(self) -> None:
         self.calls: list[str] = []
         self.error: Exception | None = None
@@ -12,10 +13,10 @@ class FakeGeocoder:
         self.calls.append(address)
         if self.error:
             raise self.error
-        return Location(48.85, 2.35)
+        return Location(latitude=48.85, longitude=2.35)
 
 
-class FakeForecaster:
+class FakeForecaster(Forecaster):
     def __init__(self) -> None:
         self.calls: list[Location] = []
 
