@@ -3,6 +3,10 @@ services:
     build: .
     ports:
       - "8000:8000"
+    environment:
+      - METEO_GEOCODER
+      - METEO_FORECASTER
+      - METEO_USER_AGENT
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
       interval: 2s

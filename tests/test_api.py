@@ -51,7 +51,7 @@ def test_upstream_failure_is_502(client, geocoder):
 
 
 def test_http_client_sends_identifying_user_agent():
-    assert app.container.http_client().headers["user-agent"] == "meteo-tp1"
+    assert app.container.http_client().headers["user-agent"] == "TP2-MeteoApi/1.0 luca.ceccarelli@etu.mines-ales.fr"
 
 
 def test_composition_root_wires_real_adapters_on_one_shared_client():

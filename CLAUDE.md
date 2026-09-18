@@ -21,6 +21,7 @@ docker compose up -d --build --wait       # build image, start service `api` on 
 uv run pytest -m e2e                      # Playwright e2e against the running container + real external services
 docker compose down
 curl -G --data-urlencode 'address=Alès' http://localhost:8000/weather   # accented addresses must be URL-encoded; raw UTF-8 gets 400 from uvicorn
+METEO_GEOCODER=ban METEO_FORECASTER=met_norway docker compose up -d --wait   # switch providers, no rebuild
 ```
 
 Test layering, controlled by `pyproject.toml`:
@@ -36,13 +37,14 @@ Import direction, one way only: `models` ← `ports` ← `services` ← `adapter
 - `meteo/models.py`: Pydantic `Location`, `Forecast`, `WeatherReport` (nested response model).
 - `meteo/ports.py`: `Geocoder` and `Forecaster` ABCs plus `AddressNotFound`. Adapters and test fakes inherit explicitly.
 - `meteo/services.py`: `WeatherService.report(address) -> WeatherReport`, the only business flow.
-- `meteo/adapters/nominatim.py`, `meteo/adapters/open_meteo.py`: HTTP implementations over an injected `httpx.Client`. Empty Nominatim result raises `AddressNotFound`; non-2xx raises `httpx.HTTPStatusError`.
-- `meteo/container.py`: `dependency_injector` `DeclarativeContainer`. `http_client` is a `ThreadSafeSingleton` carrying `User-Agent: meteo-tp1` (Nominatim policy) and a 10 s timeout; `geocoder`, `forecaster`, `weather_service` are `Factory`.
+- `meteo/adapters/`: one module per provider, each subclassing a port and taking an injected `httpx.Client`. Geocoders: `nominatim.py`, `ban.py` (BAN returns GeoJSON `[lon, lat]`). Forecasters: `open_meteo.py`, `met_norway.py`. Empty payload: geocoders raise `AddressNotFound`, forecasters return an empty `Forecast`. Provider field names never leave these modules (`tests/test_boundaries.py` enforces it).
+- `meteo/container.py`: `Configuration` read from `METEO_GEOCODER` (`nominatim`|`ban`), `METEO_FORECASTER` (`open_meteo`|`met_norway`), `METEO_USER_AGENT` at import time; `http_client` is a `ThreadSafeSingleton` whose `User-Agent` comes from config (Nominatim and MET Norway both require an identifying one); `geocoder` and `forecaster` are `Selector`s over `Factory` providers. The hermetic suite assumes no `METEO_*` variable is set.
 - `meteo/main.py`: app, two `exception_handler`s (`AddressNotFound` → 404 with the address in `detail`, `httpx.HTTPError` → 502), the `/weather` endpoint injected with `Depends(Provide[Container.weather_service])` under `@inject`, then `container.wire()` at the very end of the module. Wiring is explicit by choice; a `wiring_config` would also work provided `Container()` is instantiated after the endpoint definition.
 
 Tests follow the same seams:
 - `tests/conftest.py`: `FakeGeocoder` / `FakeForecaster` subclass the ABCs; fixtures `geocoder` / `forecaster`.
-- `tests/test_adapters.py`: `httpx.MockTransport`, asserts host and query params.
+- `tests/test_geocoder_contract.py`, `tests/test_forecaster_contract.py`: one contract per port, parametrized over every implementation via a `CASES` dict (adapter class, host, stub payloads); add a new provider by adding a case.
+- `tests/test_container.py`: provider selection via `container.config.from_dict(...)`. `tests/test_boundaries.py`: no adapter import and no provider field name outside `meteo/adapters/` (except `container.py` for wiring).
 - `tests/test_api.py`: overrides `app.container.geocoder` / `forecaster` with `providers.Object(fake)` inside a `with` block, then `TestClient`.
 - `tests/test_e2e.py`: Playwright request API against the compose container; the only tests marked `e2e`.
 
