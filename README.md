@@ -8,7 +8,7 @@ Avec Docker :
 
 ```bash
 docker compose up -d --build --wait
-curl 'http://localhost:8000/weather?address=Alès'
+curl -G --data-urlencode 'address=Alès' http://localhost:8000/weather
 docker compose down
 ```
 

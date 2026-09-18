@@ -45,3 +45,9 @@ def test_unknown_address_is_404(client, geocoder):
 def test_upstream_failure_is_502(client, geocoder):
     geocoder.error = httpx.ConnectError("boom")
     assert client.get("/weather", params={"address": "Paris"}).status_code == 502
+
+
+def test_http_client_sends_identifying_user_agent():
+    from meteo.main import get_http_client
+
+    assert get_http_client().headers["user-agent"] == "meteo-tp1"
