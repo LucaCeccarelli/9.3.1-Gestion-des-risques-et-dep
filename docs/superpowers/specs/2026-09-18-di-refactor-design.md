@@ -117,8 +117,6 @@ from meteo.services import WeatherService
 
 
 class Container(containers.DeclarativeContainer):
-    wiring_config = containers.WiringConfiguration(modules=["meteo.main"])
-
     http_client = providers.Singleton(httpx.Client, timeout=10, headers={"User-Agent": "meteo-tp1"})
     geocoder = providers.Factory(NominatimGeocoder, client=http_client)
     forecaster = providers.Factory(OpenMeteoForecaster, client=http_client)
@@ -127,7 +125,7 @@ class Container(containers.DeclarativeContainer):
 
 - `http_client` est un singleton : une seule connexion pool, un seul User-Agent (exigence de la politique d'usage Nominatim).
 - `geocoder`, `forecaster`, `weather_service` sont des `Factory` : objets légers, une instance par requête.
-- Le câblage vise `meteo.main` ; `main.py` instancie le conteneur et appelle `container.wire()` (via `wiring_config`, `container = Container()` suffit car le wiring auto s'applique à la création).
+- Pas de `wiring_config` : `main.py` importe le conteneur, définit ses endpoints, puis appelle `container.wire(modules=[__name__])` en fin de module. Un `wiring_config` visant `meteo.main` câblerait le module pendant son propre import, avant que l'endpoint existe, et n'injecterait rien.
 
 ## App (`meteo/main.py`)
 
@@ -144,9 +142,7 @@ from meteo.models import WeatherReport
 from meteo.ports import AddressNotFound
 from meteo.services import WeatherService
 
-container = Container()
 app = FastAPI(title="Météo", description="Adresse postale -> prévisions (Nominatim + Open-Meteo)")
-app.container = container
 
 
 @app.exception_handler(AddressNotFound)
@@ -166,6 +162,11 @@ def weather(
     service: WeatherService = Depends(Provide[Container.weather_service]),
 ) -> WeatherReport:
     return service.report(address)
+
+
+container = Container()
+container.wire(modules=[__name__])
+app.container = container
 ```
 
 Note : `@inject` doit être la décoration la plus proche de la fonction (sous `@app.get`). `Depends(Provide[...])` est la forme d'intégration FastAPI documentée par dependency-injector ; avec `Annotated` elle ne fonctionne pas, d'où la valeur par défaut.

@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from meteo.adapters import NominatimGeocoder, OpenMeteoForecaster
 from meteo.domain import AddressNotFound, WeatherService
 
-app = FastAPI(title="Météo", description="Adresse postale -> prévisions (Nominatim + Open-Meteo)")
+app = FastAPI(title="Meteo")
 
 
 @lru_cache
@@ -22,7 +22,7 @@ def get_weather_service(client: Annotated[httpx.Client, Depends(get_http_client)
 
 @app.get("/weather")
 def weather(
-    address: Annotated[str, Query(min_length=1, description="Adresse postale")],
+    address: Annotated[str, Query(min_length=1, description="Address")],
     service: Annotated[WeatherService, Depends(get_weather_service)],
 ) -> dict:
     try:
