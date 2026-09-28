@@ -12,12 +12,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8",
-    "pytest-playwright>=0.5",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-markers = ["e2e: Playwright tests against a running server (opt-in: pytest -m e2e)"]
+markers = ["e2e: tests against the running container (opt-in: pytest -m e2e)"]
 addopts = "-m 'not e2e'"
-base_url = "http://localhost:8000"

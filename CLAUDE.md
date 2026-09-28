@@ -18,7 +18,7 @@ uv run fastapi dev meteo/main.py          # local dev server on :8000, docs at /
 uv run pytest                             # hermetic suite: unit + API tests, no network
 uv run pytest tests/test_api.py::test_unknown_address_is_404 -v   # single test
 docker compose up -d --build --wait       # build image, start service `api` on :8000, block until healthy
-uv run pytest -m e2e                      # Playwright e2e against the running container + real external services
+uv run pytest -m e2e                      # e2e (httpx) against the running container + real external services
 docker compose down
 curl -G --data-urlencode 'address=Alès' http://localhost:8000/weather   # accented addresses must be URL-encoded; raw UTF-8 gets 400 from uvicorn
 METEO_GEOCODER=ban METEO_FORECASTER=met_norway docker compose up -d --wait   # switch providers, no rebuild
@@ -26,8 +26,7 @@ METEO_GEOCODER=ban METEO_FORECASTER=met_norway docker compose up -d --wait   # s
 
 Test layering, controlled by `pyproject.toml`:
 - `addopts = "-m 'not e2e'"` deselects the e2e tests by default; `-m e2e` on the CLI overrides it.
-- `base_url = "http://localhost:8000"` is the pytest-base-url ini key the e2e tests read.
-- The e2e tests use Playwright's `request` API (`playwright.request.new_context`), so no browser is needed. Do not run `playwright install`.
+- The e2e tests drive the container with a plain `httpx.Client` on `BASE_URL = "http://localhost:8000"` (constant in `tests/test_e2e.py`); no browser, no test plugin.
 - Two pytest warnings are expected: deprecations from Starlette's TestClient and anyio, not project code.
 
 ## Architecture
@@ -49,7 +48,7 @@ Tests follow the same seams:
 - `tests/test_api.py`: overrides `app.container.geocoder` / `forecaster` with `providers.Object(fake)` inside a `with` block, then `TestClient`. Also overrides `geocoding_cache` with a fresh `{}`.
 - `tests/test_cache.py`: unit tests for `CachedGeocoder`.
 - `tests/test_format.py`: same JSON for every provider combination using the contract `CASES`; demo shape; demo offline.
-- `tests/test_e2e.py`: Playwright request API against the compose container; the only tests marked `e2e`.
+- `tests/test_e2e.py`: `httpx.Client` against the compose container; the only tests marked `e2e`.
 
 When adding a provider: one module in `adapters/` subclassing the port, one entry in the matching `Selector` in `container.py`, one `CASES` entry in the port's contract test. Unknown `METEO_*` values fail at the first request, not at startup. Changing the contract itself: model in `models.py`, port in `ports.py`, endpoint in `main.py`.
 
@@ -59,7 +58,7 @@ When adding a provider: one module in `adapters/` subclassing the port, one entr
 
 ## Licence gate (CI)
 
-`.github/workflows/licences.yml` runs `uvx pip-licenses@5.5.5 --python .venv/bin/python --from=mixed --allow-only=...` over the full synced venv, dev group included. Matching is exact, not partial, so compound expressions such as `MIT AND PSF-2.0` are listed verbatim. `text-unidecode:1.3` (Artistic OR GPL, dev-only via `pytest-playwright` → `python-slugify`) is ignored by name and version. When a dependency change fails the gate: classify the new licence, then either extend the allow-list or add a version-pinned exception, and update `docs/audit-licences.md` and `licenses.md` in the same commit. pip-licenses is never added as a project dependency; it runs through `uvx`.
+`.github/workflows/licences.yml` runs `uvx pip-licenses@5.5.5 --python .venv/bin/python --from=mixed --allow-only=...` over the full synced venv, dev group included. Matching is exact, not partial, so compound expressions such as `Apache-2.0 OR BSD-2-Clause` are listed verbatim. There is no exception; Playwright was removed to drop GPL `text-unidecode`. When a dependency change fails the gate: classify the new licence, then either extend the allow-list or add a version-pinned exception, and update `docs/audit-licences.md` and `licenses.md` in the same commit. pip-licenses is never added as a project dependency; it runs through `uvx`.
 
 ## Conventions
 

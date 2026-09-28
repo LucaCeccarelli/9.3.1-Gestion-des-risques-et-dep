@@ -26,7 +26,7 @@ Docs interactives : http://localhost:8000/docs
 ```bash
 uv run pytest                              # unitaires + API (services externes remplacés par des fakes)
 docker compose up -d --build --wait
-uv run pytest -m e2e                       # end-to-end Playwright contre le conteneur (réseau requis)
+uv run pytest -m e2e                       # end-to-end (httpx) contre le conteneur (réseau requis)
 docker compose down
 ```
 
@@ -79,7 +79,7 @@ curl -G --data-urlencode 'address=Alès' -d demo=true http://localhost:8000/weat
 
 Audit complet (scan brut, classification, fiches de décision, CI) : [`docs/audit-licences.md`](docs/audit-licences.md). Scan brut : [`licenses.md`](licenses.md).
 
-La CI (`.github/workflows/licences.yml`) échoue si une dépendance, directe ou transitive, dev comprise, porte une licence absente de la liste blanche. Seule exception : `text-unidecode:1.3`, épinglée à cette version et justifiée dans l'audit. Pour régénérer le scan :
+La CI (`.github/workflows/licences.yml`) échoue si une dépendance, directe ou transitive, dev comprise, porte une licence absente de la liste blanche. Aucune exception : `text-unidecode` (GPL), qui n'arrivait que par Playwright, a été éliminé en passant les tests e2e sur `httpx` (voir l'audit). Pour régénérer le scan :
 
 ```bash
 uvx pip-licenses@5.5.5 --python .venv/bin/python --from=mixed --format=markdown --output-file licenses.md
