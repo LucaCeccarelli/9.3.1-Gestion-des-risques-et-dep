@@ -14,5 +14,5 @@ class OpenMeteoForecaster(Forecaster):
         params = {"latitude": location.latitude, "longitude": location.longitude, "hourly": "temperature_2m"}
         response = self.client.get(OPEN_METEO_URL, params=params)
         response.raise_for_status()
-        hourly = response.json()["hourly"]
-        return Forecast(times=hourly["time"], temperatures=hourly["temperature_2m"])
+        hourly = response.json().get("hourly") or {}
+        return Forecast(times=hourly.get("time", []), temperatures=hourly.get("temperature_2m", []))

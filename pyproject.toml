@@ -1,7 +1,7 @@
 [project]
 name = "meteo"
 version = "0.1.0"
-description = "TP1 - API meteo : adresse postale -> previsions (Nominatim + Open-Meteo)"
+description = "TP1/TP2 - API meteo : adresse postale -> previsions (Nominatim ou BAN, Open-Meteo ou MET Norway)"
 requires-python = ">=3.12"
 dependencies = [
     "dependency-injector>=4.41",
