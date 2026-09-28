@@ -97,3 +97,12 @@ def test_invalid_demo_value_is_422(client):
 
 def test_demo_mode_still_requires_an_address(client):
     assert client.get("/weather", params={"demo": "true"}).status_code == 422
+
+
+def test_demo_mode_ignores_invalid_provider_config():
+    with app.container.config.geocoder.override("typo"):
+        response = TestClient(app, raise_server_exceptions=False).get(
+            "/weather", params={"address": "zzqqxx nowhere", "demo": "true"}
+        )
+
+    assert response.status_code == 200

@@ -45,7 +45,7 @@ docker compose down
 
 Même forme, mêmes noms de champs quel que soit le fournisseur ou le mode démo (vérifié par tests/test_format.py) ; seul le contenu change. Les heures sont en UTC.
 
-Codes : `422` adresse absente ou vide, `404` adresse inconnue, `502` service externe en erreur, `422` aussi pour une valeur de `demo` non booléenne.
+Codes : `422` adresse absente ou vide, ou `demo` non booléen, `404` adresse inconnue, `502` service externe en erreur.
 
 ## Fournisseurs
 
@@ -95,7 +95,7 @@ meteo/
 
 - **Couplage faible** : `services.py` ne connaît que les ports abstraits de `ports.py`. Les adaptateurs HTTP en héritent explicitement et reçoivent leur `httpx.Client` par constructeur. Seul `main.py` importe FastAPI.
 - **Inversion de contrôle** : aucun module ne construit ses dépendances. `container.py` déclare le graphe (`ThreadSafeSingleton` pour le client HTTP avec le `User-Agent` exigé par Nominatim et MET Norway, `Factory` pour les adaptateurs et le service) ; `main.py` le câble en fin de module.
-- **Injection de dépendances** : l'endpoint reçoit `WeatherService` via `Depends(Provide[Container.weather_service])`. Les tests API remplacent `geocoder` et `forecaster` par des fakes avec `app.container.<provider>.override(...)`, sans réseau.
+- **Injection de dépendances** : l'endpoint reçoit les deux providers `WeatherService` via `Depends(Provide[Container.weather_service.provider])` et `Depends(Provide[Container.demo_weather_service.provider])`, et n'appelle que celui choisi par `demo`. Les tests API remplacent `geocoder` et `forecaster` par des fakes avec `app.container.<provider>.override(...)`, sans réseau.
 - **Pydantic** : `ForecastResponse` est le `response_model` de l'endpoint ; le schéma apparaît dans `/docs`.
 - **Coût du changement (TP2)** : ajouter BAN et MET Norway n'a touché ni `ports.py`, ni `services.py`, ni `models.py`, ni `main.py` : deux fichiers d'adaptateur, deux `Selector` dans le conteneur, et deux lignes dans l'adaptateur Open-Meteo révélées par la suite de contrat (réponse vide).
 
