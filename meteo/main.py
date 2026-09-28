@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 
 from meteo.container import Container
-from meteo.models import WeatherReport
+from meteo.models import ForecastResponse
 from meteo.ports import AddressNotFound
 from meteo.services import WeatherService
 
@@ -23,13 +23,13 @@ def upstream_error(request: Request, exc: httpx.HTTPError) -> JSONResponse:
     return JSONResponse(status_code=502, content={"detail": f"Upstream service error: {exc}"})
 
 
-@app.get("/weather", response_model=WeatherReport)
+@app.get("/weather", response_model=ForecastResponse)
 @inject
 def weather(
     address: Annotated[str, Query(min_length=1, description="Adresse postale")],
     service: WeatherService = Depends(Provide[Container.weather_service]),
-) -> WeatherReport:
-    return service.report(address)
+) -> ForecastResponse:
+    return ForecastResponse.from_report(service.report(address))
 
 
 # Câblage explicite en fin de module : l'endpoint doit exister avant que le conteneur l'injecte.

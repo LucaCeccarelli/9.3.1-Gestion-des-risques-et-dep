@@ -6,7 +6,7 @@ PROVIDER_FIELDS = (
     "geometry",
     "timeseries",
     "air_temperature",
-    "hourly",
+    '"hourly"',
     "temperature_2m",
     "display_name",
     '"lat"',

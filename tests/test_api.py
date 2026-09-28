@@ -24,8 +24,9 @@ def test_get_weather_returns_report_for_address(client, geocoder, forecaster):
     assert response.status_code == 200
     assert response.json() == {
         "address": "10 rue de Rivoli, 75004 Paris",
-        "location": {"latitude": 48.85, "longitude": 2.35},
-        "forecast": {"times": ["2026-09-18T00:00"], "temperatures": [17.2]},
+        "latitude": 48.85,
+        "longitude": 2.35,
+        "hourly": [{"time": "2026-09-18T00:00:00Z", "temperatureCelsius": 17.2}],
     }
     assert geocoder.calls == ["10 rue de Rivoli, 75004 Paris"]
     assert forecaster.calls == [Location(latitude=48.85, longitude=2.35)]  # geocoder output flowed into forecaster
