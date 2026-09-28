@@ -5,6 +5,7 @@ from meteo.adapters.ban import BanGeocoder
 from meteo.adapters.met_norway import MetNorwayForecaster
 from meteo.adapters.nominatim import NominatimGeocoder
 from meteo.adapters.open_meteo import OpenMeteoForecaster
+from meteo.cache import CachedGeocoder
 from meteo.services import WeatherService
 
 
@@ -27,4 +28,9 @@ class Container(containers.DeclarativeContainer):
         open_meteo=providers.Factory(OpenMeteoForecaster, client=http_client),
         met_norway=providers.Factory(MetNorwayForecaster, client=http_client),
     )
-    weather_service = providers.Factory(WeatherService, geocoder=geocoder, forecaster=forecaster)
+    geocoding_cache = providers.ThreadSafeSingleton(dict)
+    weather_service = providers.Factory(
+        WeatherService,
+        geocoder=providers.Factory(CachedGeocoder, geocoder=geocoder, cache=geocoding_cache),
+        forecaster=forecaster,
+    )

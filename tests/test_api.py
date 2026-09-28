@@ -13,6 +13,7 @@ def client(geocoder, forecaster) -> TestClient:
     with (
         app.container.geocoder.override(providers.Object(geocoder)),
         app.container.forecaster.override(providers.Object(forecaster)),
+        app.container.geocoding_cache.override(providers.Object({})),
     ):
         yield TestClient(app)
 
@@ -60,6 +61,13 @@ def test_composition_root_wires_real_adapters_on_one_shared_client():
 
     service = app.container.weather_service()
 
-    assert isinstance(service.geocoder, NominatimGeocoder)
+    assert isinstance(service.geocoder.geocoder, NominatimGeocoder)
     assert isinstance(service.forecaster, OpenMeteoForecaster)
-    assert service.geocoder.client is service.forecaster.client is app.container.http_client()
+    assert service.geocoder.geocoder.client is service.forecaster.client is app.container.http_client()
+
+
+def test_same_address_twice_is_geocoded_once(client, geocoder):
+    for _ in range(2):
+        assert client.get("/weather", params={"address": "Alès"}).status_code == 200
+
+    assert geocoder.calls == ["Alès"]
