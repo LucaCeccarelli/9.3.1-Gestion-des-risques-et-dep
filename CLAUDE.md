@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TP1/TP2 school assignment: a FastAPI service where `GET /weather?address=<postal address>` geocodes the address (Nominatim or BAN), then fetches an hourly temperature forecast (Open-Meteo or MET Norway); the provider for each step is chosen by environment variable. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. The implementation plan lives in `docs/superpowers/plans/` (untracked).
+TP1/TP2/TP3 school assignment: a FastAPI service where `GET /weather?address=<postal address>[&demo=true]` geocodes the address (Nominatim or BAN), then fetches an hourly temperature forecast (Open-Meteo or MET Norway); the provider for each step is chosen by environment variable. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. TP3 (`TP3.pdf`) adds demo mode, a geocoding cache and a fixed JSON output shape. The implementation plan lives in `docs/superpowers/plans/` (untracked).
 
 The code is deliberately minimal (ponytail discipline: stdlib/native first, no speculative abstractions, sync httpx, configuration limited to three `METEO_*` environment variables). Keep it that way; add only what a real need demands.
 
@@ -32,20 +32,23 @@ Test layering, controlled by `pyproject.toml`:
 
 ## Architecture
 
-Import direction, one way only: `models` ← `ports` ← `services` ← `adapters.*` ← `container` ← `main`. Only `main` imports FastAPI; only `container` and `main` import dependency-injector.
+Import direction, one way only: `models` ← `ports` ← `services`, `cache` ← `adapters.*` ← `container` ← `main`. Only `main` imports FastAPI; only `container` and `main` import dependency-injector.
 
-- `meteo/models.py`: Pydantic `Location`, `Forecast`, `WeatherReport` (nested response model).
+- `meteo/models.py`: Pydantic `Location`, `Forecast`, `WeatherReport` (nested response model). `ForecastResponse.from_report` is the only producer of the public JSON (`address`, `latitude`, `longitude`, `hourly[{time, temperatureCelsius}]`). Domain times are naive UTC `%Y-%m-%dT%H:%M` and are serialised as `...:00Z`.
 - `meteo/ports.py`: `Geocoder` and `Forecaster` ABCs plus `AddressNotFound`. Adapters and test fakes inherit explicitly.
 - `meteo/services.py`: `WeatherService.report(address) -> WeatherReport`, the only business flow.
-- `meteo/adapters/`: one module per provider, each subclassing a port and taking an injected `httpx.Client`. Geocoders: `nominatim.py`, `ban.py` (BAN returns GeoJSON `[lon, lat]`). Forecasters: `open_meteo.py`, `met_norway.py`. Empty payload: geocoders raise `AddressNotFound`, forecasters return an empty `Forecast`. Provider field names never leave these modules (`tests/test_boundaries.py` enforces it).
-- `meteo/container.py`: `Configuration` read from `METEO_GEOCODER` (`nominatim`|`ban`), `METEO_FORECASTER` (`open_meteo`|`met_norway`), `METEO_USER_AGENT` at import time; `http_client` is a `ThreadSafeSingleton` whose `User-Agent` comes from config (Nominatim and MET Norway both require an identifying one); `geocoder` and `forecaster` are `Selector`s over `Factory` providers. The hermetic suite assumes no `METEO_*` variable is set.
-- `meteo/main.py`: app, two `exception_handler`s (`AddressNotFound` → 404 with the address in `detail`, `httpx.HTTPError` → 502), the `/weather` endpoint injected with `Depends(Provide[Container.weather_service])` under `@inject`, then `container.wire()` at the very end of the module. Wiring is explicit by choice; a `wiring_config` would also work provided `Container()` is instantiated after the endpoint definition.
+- `meteo/cache.py`: `CachedGeocoder(Geocoder)` wraps a geocoder, storage injected as a `MutableMapping`. Failures are not cached.
+- `meteo/adapters/`: one module per provider, each subclassing a port and taking an injected `httpx.Client`. Geocoders: `nominatim.py`, `ban.py` (BAN returns GeoJSON `[lon, lat]`). Forecasters: `open_meteo.py`, `met_norway.py`. Empty payload: geocoders raise `AddressNotFound`, forecasters return an empty `Forecast`. Provider field names never leave these modules (`tests/test_boundaries.py` enforces it). `meteo/adapters/demo.py`: `DemoGeocoder`, `DemoForecaster`, fixed simulated data.
+- `meteo/container.py`: `Configuration` read from `METEO_GEOCODER` (`nominatim`|`ban`), `METEO_FORECASTER` (`open_meteo`|`met_norway`), `METEO_USER_AGENT` at import time; `http_client` is a `ThreadSafeSingleton` whose `User-Agent` comes from config (Nominatim and MET Norway both require an identifying one); `geocoder` and `forecaster` are `Selector`s over `Factory` providers. The hermetic suite assumes no `METEO_*` variable is set. `geocoding_cache` (`ThreadSafeSingleton(dict)`, per container, not static) wraps the `geocoder` `Selector` via `CachedGeocoder` inside `weather_service`. `demo_weather_service` is a `WeatherService` over the demo strategies.
+- `meteo/main.py`: app, two `exception_handler`s (`AddressNotFound` → 404 with the address in `detail`, `httpx.HTTPError` → 502), the `/weather` endpoint injects both services and picks one from the `demo: bool` query param, under `@inject`, then `container.wire()` at the very end of the module. Wiring is explicit by choice; a `wiring_config` would also work provided `Container()` is instantiated after the endpoint definition.
 
 Tests follow the same seams:
 - `tests/conftest.py`: `FakeGeocoder` / `FakeForecaster` subclass the ABCs; fixtures `geocoder` / `forecaster`.
 - `tests/test_geocoder_contract.py`, `tests/test_forecaster_contract.py`: one contract per port, parametrized over every implementation via a `CASES` dict (adapter class, host, stub payloads); add a new provider by adding a case.
 - `tests/test_container.py`: provider selection via `container.config.from_dict(...)`. `tests/test_boundaries.py`: no adapter import and no provider field name outside `meteo/adapters/` (except `container.py` for wiring).
-- `tests/test_api.py`: overrides `app.container.geocoder` / `forecaster` with `providers.Object(fake)` inside a `with` block, then `TestClient`.
+- `tests/test_api.py`: overrides `app.container.geocoder` / `forecaster` with `providers.Object(fake)` inside a `with` block, then `TestClient`. Also overrides `geocoding_cache` with a fresh `{}`.
+- `tests/test_cache.py`: unit tests for `CachedGeocoder`.
+- `tests/test_format.py`: same JSON for every provider combination using the contract `CASES`; demo shape; demo offline.
 - `tests/test_e2e.py`: Playwright request API against the compose container; the only tests marked `e2e`.
 
 When adding a provider: one module in `adapters/` subclassing the port, one entry in the matching `Selector` in `container.py`, one `CASES` entry in the port's contract test. Unknown `METEO_*` values fail at the first request, not at startup. Changing the contract itself: model in `models.py`, port in `ports.py`, endpoint in `main.py`.

@@ -22,9 +22,19 @@ def test_weather_for_a_real_address(api):
     assert response.ok, response.text()
     body = response.json()
     assert body["address"] == "Alès"
-    assert 44 < body["location"]["latitude"] < 45
-    assert 3 < body["location"]["longitude"] < 5
-    assert len(body["forecast"]["times"]) == len(body["forecast"]["temperatures"]) > 0
+    assert 44 < body["latitude"] < 45
+    assert 3 < body["longitude"] < 5
+    assert body["hourly"]
+    assert set(body["hourly"][0]) == {"time", "temperatureCelsius"}
+    assert body["hourly"][0]["time"].endswith("Z")
+
+
+def test_demo_mode_has_the_same_shape_as_real_data(api):
+    real = api.get("/weather", params={"address": "Alès"}).json()
+    demo = api.get("/weather", params={"address": "Alès", "demo": "true"}).json()
+
+    assert set(demo) == set(real) == {"address", "latitude", "longitude", "hourly"}
+    assert set(demo["hourly"][0]) == set(real["hourly"][0])
 
 
 def test_unknown_address_is_404(api):
