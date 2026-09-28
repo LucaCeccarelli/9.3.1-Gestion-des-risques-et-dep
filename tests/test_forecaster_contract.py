@@ -74,3 +74,10 @@ def test_met_norway_sends_at_most_four_decimals(stub_client):
 
     assert seen[0].url.params["lat"] == "44.1254"
     assert seen[0].url.params["lon"] == "4.0853"
+
+
+def test_open_meteo_sends_no_timezone_param(stub_client):
+    seen: list[httpx.Request] = []
+    OpenMeteoForecaster(stub_client(CASES["open_meteo"]["found"], seen=seen)).forecast(ALES)
+
+    assert "timezone" not in seen[0].url.params

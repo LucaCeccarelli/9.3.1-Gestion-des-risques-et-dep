@@ -18,15 +18,22 @@ def configured(geocoder: str, forecaster: str) -> Container:
 def test_new_providers_are_selected_by_config():
     service = configured("ban", "met_norway").weather_service()
 
-    assert isinstance(service.geocoder, BanGeocoder)
+    assert isinstance(service.geocoder.geocoder, BanGeocoder)
     assert isinstance(service.forecaster, MetNorwayForecaster)
 
 
 def test_legacy_providers_remain_available():
     service = configured("nominatim", "open_meteo").weather_service()
 
-    assert isinstance(service.geocoder, NominatimGeocoder)
+    assert isinstance(service.geocoder.geocoder, NominatimGeocoder)
     assert isinstance(service.forecaster, OpenMeteoForecaster)
+
+
+def test_geocoding_cache_outlives_requests_but_belongs_to_its_container():
+    container = configured("ban", "met_norway")
+
+    assert container.weather_service().geocoder.cache is container.weather_service().geocoder.cache
+    assert Container().geocoding_cache() is not container.geocoding_cache()
 
 
 def test_user_agent_comes_from_config():
