@@ -1,4 +1,4 @@
-# TP1 / TP2 / TP3 — API Météo
+# TP1 à TP4 — API Météo
 
 `GET /weather?address=<adresse postale>[&demo=true]` → géocodage (Nominatim ou BAN, mis en cache), puis prévisions horaires (Open-Meteo ou MET Norway). Le fournisseur de chaque étape se choisit par variable d'environnement ; `demo=true` renvoie des données simulées sans aucun appel externe.
 
@@ -26,7 +26,7 @@ Docs interactives : http://localhost:8000/docs
 ```bash
 uv run pytest                              # unitaires + API (services externes remplacés par des fakes)
 docker compose up -d --build --wait
-uv run pytest -m e2e                       # end-to-end Playwright contre le conteneur (réseau requis)
+uv run pytest -m e2e                       # end-to-end (httpx) contre le conteneur (réseau requis)
 docker compose down
 ```
 
@@ -74,6 +74,16 @@ curl -G --data-urlencode 'address=Alès' -d demo=true http://localhost:8000/weat
 
 - **Mode démo** : `demo=true` sert `DemoGeocoder` et `DemoForecaster` (`meteo/adapters/demo.py`), deux implémentations des ports existants. Aucun appel réseau : `tests/test_format.py` le prouve avec un client HTTP qui échoue à la moindre requête.
 - **Cache de géocodage** : `CachedGeocoder` (`meteo/cache.py`) enveloppe le géocodeur actif ; deux appels pour la même adresse ne font qu'un appel réseau. Le stockage est un `MutableMapping` injecté par le conteneur (`geocoding_cache`, un singleton du conteneur, pas une variable statique). Pour le faire évoluer (TTL, LRU, Redis…), seul ce provider change. Les échecs (adresse inconnue, erreur HTTP) ne sont pas mis en cache.
+
+## Licences (TP4)
+
+Audit complet (scan brut, classification, fiches de décision, CI) : [`docs/audit-licences.md`](docs/audit-licences.md). Scan brut : [`licenses.md`](licenses.md).
+
+La CI (`.github/workflows/licences.yml`) échoue si une dépendance, directe ou transitive, dev comprise, porte une licence absente de la liste blanche. Aucune exception : `text-unidecode` (GPL), qui n'arrivait que par Playwright, a été éliminé en passant les tests e2e sur `httpx` (voir l'audit). Pour régénérer le scan :
+
+```bash
+uvx pip-licenses@5.5.5 --python .venv/bin/python --from=mixed --format=markdown --output-file licenses.md
+```
 
 ## Architecture
 
