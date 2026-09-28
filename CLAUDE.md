@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-TP1/TP2/TP3 school assignment: a FastAPI service where `GET /weather?address=<postal address>[&demo=true]` geocodes the address (Nominatim or BAN), then fetches an hourly temperature forecast (Open-Meteo or MET Norway); the provider for each step is chosen by environment variable. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. TP3 (`TP3.pdf`) adds demo mode, a geocoding cache and a fixed JSON output shape. The implementation plan lives in `docs/superpowers/plans/` (untracked).
+TP1–TP4 school assignment: a FastAPI service where `GET /weather?address=<postal address>[&demo=true]` geocodes the address (Nominatim or BAN), then fetches an hourly temperature forecast (Open-Meteo or MET Norway); the provider for each step is chosen by environment variable. The spec (`TP1.pdf`, one directory above the repo) grades on loose coupling, IoC and DI, plus unit and end-to-end tests. TP3 (`TP3.pdf`) adds demo mode, a geocoding cache and a fixed JSON output shape. TP4 (`TP4.pdf`) is a licence audit with no code change: report in `docs/audit-licences.md`, raw scan in `licenses.md`. The implementation plan lives in `docs/superpowers/plans/` (untracked).
 
 The code is deliberately minimal (ponytail discipline: stdlib/native first, no speculative abstractions, sync httpx, configuration limited to three `METEO_*` environment variables). Keep it that way; add only what a real need demands.
 
@@ -56,6 +56,10 @@ When adding a provider: one module in `adapters/` subclassing the port, one entr
 ## Docker
 
 `Dockerfile` copies `pyproject.toml` + `uv.lock` first and runs `uv sync --frozen --no-dev` before copying `meteo/`, then runs `.venv/bin/fastapi run meteo/main.py --port 8000` directly. `compose.yaml` has one service `api` whose healthcheck uses the image's own `python` against `/docs` (slim image has no curl), which is what makes `--wait` work. `.dockerignore` excludes `tests` and `docs`.
+
+## Licence gate (CI)
+
+`.github/workflows/licences.yml` runs `uvx pip-licenses@5.5.5 --python .venv/bin/python --from=mixed --allow-only=...` over the full synced venv, dev group included. Matching is exact, not partial, so compound expressions such as `MIT AND PSF-2.0` are listed verbatim. `text-unidecode:1.3` (Artistic OR GPL, dev-only via `pytest-playwright` → `python-slugify`) is ignored by name and version. When a dependency change fails the gate: classify the new licence, then either extend the allow-list or add a version-pinned exception, and update `docs/audit-licences.md` and `licenses.md` in the same commit. pip-licenses is never added as a project dependency; it runs through `uvx`.
 
 ## Conventions
 
