@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 
+import httpx
 import pytest
 from dependency_injector import providers
 from fastapi.testclient import TestClient
@@ -47,3 +48,28 @@ def test_empty_forecast_keeps_the_shape(stub_client):
         response = client.get("/weather", params={"address": "Alès"})
 
     assert response.json() == {**EXPECTED, "hourly": []}
+
+
+def shape(value):
+    if isinstance(value, dict):
+        return {key: shape(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [shape(item) for item in value[:1]]
+    return type(value).__name__
+
+
+def test_demo_mode_is_offline_and_keeps_the_shape():
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise AssertionError(f"unexpected call to {request.url}")
+
+    offline = httpx.Client(transport=httpx.MockTransport(refuse))
+    with (
+        app.container.http_client.override(providers.Object(offline)),
+        app.container.geocoding_cache.override(providers.Object({})),
+    ):
+        client = TestClient(app)
+        response = client.get("/weather", params={"address": "Alès", "demo": "true"})
+        assert response.status_code == 200
+        assert shape(response.json()) == shape(EXPECTED)
+        with pytest.raises(AssertionError):
+            client.get("/weather", params={"address": "Alès"})

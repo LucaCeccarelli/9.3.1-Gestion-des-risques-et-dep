@@ -27,9 +27,11 @@ def upstream_error(request: Request, exc: httpx.HTTPError) -> JSONResponse:
 @inject
 def weather(
     address: Annotated[str, Query(min_length=1, description="Adresse postale")],
+    demo: Annotated[bool, Query(description="Données simulées, aucun appel externe")] = False,
     service: WeatherService = Depends(Provide[Container.weather_service]),
+    demo_service: WeatherService = Depends(Provide[Container.demo_weather_service]),
 ) -> ForecastResponse:
-    return ForecastResponse.from_report(service.report(address))
+    return ForecastResponse.from_report((demo_service if demo else service).report(address))
 
 
 # Câblage explicite en fin de module : l'endpoint doit exister avant que le conteneur l'injecte.

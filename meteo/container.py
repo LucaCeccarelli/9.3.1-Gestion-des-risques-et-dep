@@ -2,6 +2,7 @@ import httpx
 from dependency_injector import containers, providers
 
 from meteo.adapters.ban import BanGeocoder
+from meteo.adapters.demo import DemoForecaster, DemoGeocoder
 from meteo.adapters.met_norway import MetNorwayForecaster
 from meteo.adapters.nominatim import NominatimGeocoder
 from meteo.adapters.open_meteo import OpenMeteoForecaster
@@ -33,4 +34,7 @@ class Container(containers.DeclarativeContainer):
         WeatherService,
         geocoder=providers.Factory(CachedGeocoder, geocoder=geocoder, cache=geocoding_cache),
         forecaster=forecaster,
+    )
+    demo_weather_service = providers.Factory(
+        WeatherService, geocoder=providers.Factory(DemoGeocoder), forecaster=providers.Factory(DemoForecaster)
     )

@@ -72,3 +72,28 @@ def test_same_address_twice_is_geocoded_once(client, geocoder):
         assert client.get("/weather", params={"address": "Alès"}).status_code == 200
 
     assert geocoder.calls == ["Alès"]
+
+
+def test_demo_mode_uses_simulated_data(client, geocoder, forecaster):
+    response = client.get("/weather", params={"address": "zzqqxx nowhere", "demo": "true"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["address"] == "zzqqxx nowhere"
+    assert (body["latitude"], body["longitude"]) == (44.1279, 4.0817)
+    assert len(body["hourly"]) == 24
+    assert geocoder.calls == forecaster.calls == []
+
+
+@pytest.mark.parametrize("value", ["false", "0"])
+def test_demo_false_uses_real_providers(client, geocoder, value):
+    assert client.get("/weather", params={"address": "Paris", "demo": value}).status_code == 200
+    assert geocoder.calls == ["Paris"]
+
+
+def test_invalid_demo_value_is_422(client):
+    assert client.get("/weather", params={"address": "Paris", "demo": "banana"}).status_code == 422
+
+
+def test_demo_mode_still_requires_an_address(client):
+    assert client.get("/weather", params={"demo": "true"}).status_code == 422
